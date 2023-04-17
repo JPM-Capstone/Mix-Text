@@ -70,10 +70,10 @@ class UnlabeledDataset(Dataset):
             data = self.out_of_domain
             backtranslation_choices = [self.out_of_domain_russian, self.out_of_domain_german]
 
-        input_ids, attention_mask, _ = data.iloc[index][['input_ids', 'attention_mask', 'labels']]
+        input_ids, _, _ = data.iloc[index][['input_ids', 'attention_mask', 'labels']]
 
         input_ids = torch.tensor(np.array(input_ids.split()[1:-1] + [EOS_token], dtype=np.int64)) # convert string to array
-        attention_mask = torch.tensor(np.array(['1'] + attention_mask.split()[1:-1] + ['1'], dtype=np.int64))
+        # attention_mask = torch.tensor(np.array(['1'] + attention_mask.split()[1:-1] + ['1'], dtype=np.int64))
 
         idx = data.iloc[index].name
         ru_backtranslation, de_backtranslation = backtranslation_choices[0][idx], backtranslation_choices[1][idx]
