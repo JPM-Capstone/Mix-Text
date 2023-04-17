@@ -1,0 +1,11 @@
+# data is too large
+all_backtranslations/*.pkl
+reduced_data/*.csv
+
+# model weights are too large
+results/*/*.pt
+
+# rough work
+scratch.ipynb
+
+jobs
