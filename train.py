@@ -1,7 +1,7 @@
 import os
 import sys
 import math
-
+import json
 import numpy as np
 import torch
 import torch.nn as nn
@@ -28,11 +28,14 @@ flag = 0
 NUM_LABELS = 10 # Number of labels in Yahoo
 PAD_token = 1 # RoBERTa 
 
-def main(config):
-    global best_acc
+def main(config_name):
 
-    global CONFIG
-    CONFIG = config
+    global config
+
+    with open(os.path.join("configs", f"{config_name}.json"), "r") as f:
+        config = json.load(f)
+
+    global best_acc
 
     # Read dataset and build dataloaders
     labeled_train = LabeledDataset(config['train_labeled_idx_name'])
@@ -123,9 +126,9 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
 
     global total_steps
     global flag
-    if flag == 0 and total_steps > CONFIG['temp_change']:
+    if flag == 0 and total_steps > config['temp_change']:
         print('Change T!')
-        CONFIG['T'] = 0.9
+        config['T'] = 0.9
         flag = 1
 
     for batch_idx in range(len(unlabeled_trainloader)):
@@ -172,19 +175,19 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
             p = (0 * torch.softmax(outputs_u, dim=1) + 0 * torch.softmax(outputs_u2,
                                                                          dim=1) + 1 * torch.softmax(outputs_ori, dim=1)) / (1)
             # Do a sharpen here.
-            pt = p**(1/CONFIG['T'])
+            pt = p**(1/config['T'])
             targets_u = pt / pt.sum(dim=1, keepdim=True)
             targets_u = targets_u.detach()
 
         mixed = 1
 
-        l = np.random.beta(CONFIG['alpha'], CONFIG['alpha'])
-        if CONFIG['separate_mix']:
+        l = np.random.beta(config['alpha'], config['alpha'])
+        if config['separate_mix']:
             l = l
         else:
             l = max(l, 1-l)
 
-        mix_layer = np.random.choice(CONFIG['mix_layers_set'], 1)[0]
+        mix_layer = np.random.choice(config['mix_layers_set'], 1)[0]
         mix_layer = mix_layer - 1
 
         all_inputs = torch.cat(
@@ -196,7 +199,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
         all_targets = torch.cat(
             [targets_x, targets_u, targets_u, targets_u, targets_u], dim=0)
 
-        if CONFIG['separate_mix']:
+        if config['separate_mix']:
             idx1 = torch.randperm(batch_size)
             idx2 = torch.randperm(all_inputs.size(0) - batch_size) + batch_size
             idx = torch.cat([idx1, idx2], dim=0)
@@ -211,12 +214,12 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
         target_a, target_b = all_targets, all_targets[idx]
         length_a, length_b = all_lengths, all_lengths[idx]
 
-        if CONFIG['mix_method'] == 0:
+        if config['mix_method'] == 0:
             # Mix sentences' hidden representations
             logits = model(input_a, input_b, l, mix_layer)
             mixed_target = l * target_a + (1 - l) * target_b
 
-        elif CONFIG['mix_method'] == 1:
+        elif config['mix_method'] == 1:
             # Concat snippet of two training sentences, the snippets are selected based on l
             # For example: "I lova you so much" and "He likes NLP" could be mixed as "He likes NLP so much".
             # The corresponding labels are mixed with coefficient as well
@@ -244,7 +247,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
             logits = model(mixed_input)
             mixed_target = l * target_a + (1 - l) * target_b
 
-        elif CONFIG['mix_method'] == 2:
+        elif config['mix_method'] == 2:
             # Concat two training sentences
             # The corresponding labels are averaged
             if l == 1:
@@ -353,7 +356,7 @@ def get_batch_size(num_samples, config):
     batch_size = max(batch_size, config['min_batch_size'])
     return batch_size
 
-def linear_rampup(current, rampup_length=CONFIG['epochs']):
+def linear_rampup(current, rampup_length=config['epochs']):
     if rampup_length == 0:
         return 1.0
     else:
@@ -364,7 +367,7 @@ def linear_rampup(current, rampup_length=CONFIG['epochs']):
 class SemiLoss(object):
     def __call__(self, outputs_x, targets_x, outputs_u, targets_u, outputs_u_2, epoch, mixed=1):
 
-        if CONFIG['mix_method'] == 0 or CONFIG['mix_method'] == 1:
+        if config['mix_method'] == 0 or config['mix_method'] == 1:
 
             Lx = - \
                 torch.mean(torch.sum(F.log_softmax(
@@ -375,9 +378,9 @@ class SemiLoss(object):
             Lu = F.kl_div(probs_u.log(), targets_u, None, None, 'batchmean')
 
             Lu2 = torch.mean(torch.clamp(torch.sum(-F.softmax(outputs_u, dim=1)
-                                                   * F.log_softmax(outputs_u, dim=1), dim=1) - CONFIG['hinge_margin'], min=0))
+                                                   * F.log_softmax(outputs_u, dim=1), dim=1) - config['hinge_margin'], min=0))
 
-        elif CONFIG['mix_method'] == 2:
+        elif config['mix_method'] == 2:
             if mixed == 0:
                 Lx = - \
                     torch.mean(torch.sum(F.logsigmoid(
@@ -388,7 +391,7 @@ class SemiLoss(object):
                 Lu = F.kl_div(probs_u.log(), targets_u,
                               None, None, 'batchmean')
 
-                Lu2 = torch.mean(torch.clamp(CONFIG['hinge_margin'] - torch.sum(
+                Lu2 = torch.mean(torch.clamp(config['hinge_margin'] - torch.sum(
                     F.softmax(outputs_u_2, dim=1) * F.softmax(outputs_u_2, dim=1), dim=1), min=0))
             else:
                 Lx = - \
@@ -399,10 +402,10 @@ class SemiLoss(object):
                 Lu = F.kl_div(probs_u.log(), targets_u,
                               None, None, 'batchmean')
 
-                Lu2 = torch.mean(torch.clamp(CONFIG['hinge_margin'] - torch.sum(
+                Lu2 = torch.mean(torch.clamp(config['hinge_margin'] - torch.sum(
                     F.softmax(outputs_u, dim=1) * F.softmax(outputs_u, dim=1), dim=1), min=0))
 
-        return Lx, Lu, CONFIG['lambda_u'] * linear_rampup(epoch), Lu2, CONFIG['lambda_u_hinge'] * linear_rampup(epoch)
+        return Lx, Lu, config['lambda_u'] * linear_rampup(epoch), Lu2, config['lambda_u_hinge'] * linear_rampup(epoch)
 
 
 if __name__ == '__main__':
