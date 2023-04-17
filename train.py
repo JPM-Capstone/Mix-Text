@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import *
 from torch.nn.utils.rnn import pad_sequence
+from tqdm import tqdm
 
 from mixtext import MixText
 
@@ -57,7 +58,7 @@ def main(config_name):
                             batch_size = config['val_batch_size'], 
                             shuffle=False,
                             collate_fn = collate_batch)
-    
+        
     # Define the model, set the optimizer
     model = MixText(NUM_LABELS).cuda()
     model = nn.DataParallel(model)
@@ -131,7 +132,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
         config['T'] = 0.9
         flag = 1
 
-    for batch_idx in range(len(unlabeled_trainloader)):
+    for batch_idx in tqdm(range(len(unlabeled_trainloader))):
 
         total_steps += 1
 
