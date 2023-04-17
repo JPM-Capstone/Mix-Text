@@ -67,7 +67,7 @@ def main(config_name):
             {"params": model.module.linear.parameters(), "lr": config['lrlast']},
         ])
 
-    num_warmup_steps = math.floor(50)
+    # num_warmup_steps = math.floor(50)
 
     scheduler = None
     #WarmupConstantSchedule(optimizer, warmup_steps=num_warmup_steps)
