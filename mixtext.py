@@ -163,7 +163,7 @@ class MixText(nn.Module):
 
         self.bert = BertModel4Mix.from_pretrained(CHECKPOINT)
 
-        self.linear = nn.Sequential(nn.Linear(768, 128),
+        self.linear = nn.Sequential(nn.Linear(1024, 128),
                                     nn.Tanh(),
                                     nn.Linear(128, num_labels))
 
