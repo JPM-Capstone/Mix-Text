@@ -189,10 +189,13 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
 
         mix_layer = np.random.choice(config['mix_layers_set'], 1)[0]
         mix_layer = mix_layer - 1
-
-        all_inputs = torch.cat(
-            pad_sequence([inputs_x, inputs_u, inputs_u2, inputs_ori, inputs_ori], 
-                         batch_first = True, padding_value = PAD_token), dim=0)
+        
+        max_dim = max(inputs_x.shape[1], inputs_u.shape[1], inputs_u2.shape[1], inputs_ori.shape[1])
+        all_inputs = torch.cat([torch.nn.functional.pad(inputs_x, (0, max_dim-inputs_x.shape[1], 0, 0), 'constant', 0),
+                                torch.nn.functional.pad(inputs_u, (0, max_dim-inputs_u.shape[1], 0, 0), 'constant', 0),
+                                torch.nn.functional.pad(inputs_u2, (0, max_dim-inputs_u2.shape[1], 0, 0), 'constant', 0),
+                                torch.nn.functional.pad(inputs_ori, (0, max_dim-inputs_ori.shape[1], 0, 0), 'constant', 0),
+                                torch.nn.functional.pad(inputs_ori, (0, max_dim-inputs_ori.shape[1], 0, 0), 'constant', 0)], dim=0)
 
         all_lengths = torch.cat(
             [inputs_x_length, length_u, length_u2, length_ori, length_ori], dim=0)
