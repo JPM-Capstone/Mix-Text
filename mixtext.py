@@ -158,13 +158,10 @@ class BertEncoder4Mix(nn.Module):
 
 
 class MixText(nn.Module):
-    def __init__(self, num_labels=2, mix_option=False):
+    def __init__(self, num_labels=2):
         super(MixText, self).__init__()
 
-        if mix_option:
-            self.bert = BertModel4Mix.from_pretrained(CHECKPOINT)
-        else:
-            self.bert = BertModel.from_pretrained(CHECKPOINT)
+        self.bert = BertModel4Mix.from_pretrained(CHECKPOINT)
 
         self.linear = nn.Sequential(nn.Linear(768, 128),
                                     nn.Tanh(),

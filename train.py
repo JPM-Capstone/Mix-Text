@@ -1,6 +1,5 @@
-import argparse
 import os
-import random
+import sys
 import math
 
 import numpy as np
@@ -9,8 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import *
-from torch.autograd import Variable
-from torch.utils.data import Dataset
+from torch.nn.utils.rnn import pad_sequence
 
 from mixtext import MixText
 
@@ -20,118 +18,53 @@ import gc
 gc.collect()
 torch.cuda.empty_cache()
 
-
-parser = argparse.ArgumentParser(description='PyTorch MixText')
-
-parser.add_argument('--epochs', default=50, type=int, metavar='N',
-                    help='number of total epochs to run')
-parser.add_argument('--batch-size', default=4, type=int, metavar='N',
-                    help='train batchsize')
-parser.add_argument('--batch-size-u', default=24, type=int, metavar='N',
-                    help='train batchsize')
-
-parser.add_argument('--lrmain', '--learning-rate-bert', default=0.00001, type=float,
-                    metavar='LR', help='initial learning rate for bert')
-parser.add_argument('--lrlast', '--learning-rate-model', default=0.001, type=float,
-                    metavar='LR', help='initial learning rate for models')
-
-parser.add_argument('--gpu', default='0,1,2,3', type=str,
-                    help='id(s) for CUDA_VISIBLE_DEVICES')
-
-parser.add_argument('--n-labeled', type=int, default=20,
-                    help='number of labeled data')
-
-parser.add_argument('--un-labeled', default=5000, type=int,
-                    help='number of unlabeled data')
-
-parser.add_argument('--val-iteration', type=int, default=200,
-                    help='number of labeled data')
-
-
-parser.add_argument('--mix-option', default=True, type=bool, metavar='N',
-                    help='mix option, whether to mix or not')
-parser.add_argument('--mix-method', default=0, type=int, metavar='N',
-                    help='mix method, set different mix method')
-parser.add_argument('--separate-mix', default=False, type=bool, metavar='N',
-                    help='mix separate from labeled data and unlabeled data')
-parser.add_argument('--co', default=False, type=bool, metavar='N',
-                    help='set a random choice between mix and unmix during training')
-parser.add_argument('--train_aug', default=False, type=bool, metavar='N',
-                    help='augment labeled training data')
-
-
-parser.add_argument('--model', type=str, default='bert-base-uncased',
-                    help='pretrained model')
-
-parser.add_argument('--data-path', type=str, default='yahoo_answers_csv/',
-                    help='path to data folders')
-
-parser.add_argument('--mix-layers-set', nargs='+',
-                    default=[0, 1, 2, 3], type=int, help='define mix layer set')
-
-parser.add_argument('--alpha', default=0.75, type=float,
-                    help='alpha for beta distribution')
-
-parser.add_argument('--lambda-u', default=1, type=float,
-                    help='weight for consistency loss term of unlabeled data')
-parser.add_argument('--T', default=0.5, type=float,
-                    help='temperature for sharpen function')
-
-parser.add_argument('--temp-change', default=1000000, type=int)
-
-parser.add_argument('--margin', default=0.7, type=float, metavar='N',
-                    help='margin for hinge loss')
-parser.add_argument('--lambda-u-hinge', default=0, type=float,
-                    help='weight for hinge loss term of unlabeled data')
-
-args = parser.parse_args()
-
-os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-n_gpu = torch.cuda.device_count()
-print("GPU num: ", n_gpu)
 
 best_acc = 0
 total_steps = 0
 flag = 0
-print('Whether mix: ', args.mix_option)
-print("Mix layers sets: ", args.mix_layers_set)
 
 NUM_LABELS = 10 # Number of labels in Yahoo
+PAD_token = 1 # RoBERTa 
 
-def main():
+def main(config):
     global best_acc
 
-    # Read dataset and build dataloaders
-    train_labeled_idx_name = "msr_30_equal_100_labeled_indices.pt"
-    train_unlabeled_idx_name = "msr_30_idr_5_50000_unlabeled_indices.pt"
+    global CONFIG
+    CONFIG = config
 
-    labeled_train = LabeledDataset(train_labeled_idx_name)
-    unlabeled_train = UnlabeledDataset(train_unlabeled_idx_name)
+    # Read dataset and build dataloaders
+    labeled_train = LabeledDataset(config['train_labeled_idx_name'])
+    unlabeled_train = UnlabeledDataset(config['train_unlabeled_idx_name'])
     val_dataset = LabeledDataset()
     
-    # TODO: padding
+    labeled_batch_size = get_batch_size(len(labeled_train), config)
     labeled_trainloader = DataLoader(labeled_train, 
-                                     batch_size = ..., 
-                                     shuffle = True)
+                                     batch_size = labeled_batch_size, 
+                                     shuffle = True,
+                                     collate_fn = collate_batch)
+    
+    unlabeled_batch_size = get_batch_size(len(unlabeled_train), config)
     unlabeled_trainloader = DataLoader(unlabeled_train, 
-                                        batch_size = ..., 
-                                        shuffle = True)
+                                        batch_size = unlabeled_batch_size, 
+                                        shuffle = True,
+                                        collate_fn = collate_batch)
     val_loader = DataLoader(val_dataset, 
-                            batch_size = ..., 
-                            shuffle=False)
+                            batch_size = config['val_batch_size'], 
+                            shuffle=False,
+                            collate_fn = collate_batch)
+    
     # Define the model, set the optimizer
-    model = MixText(NUM_LABELS, args.mix_option).cuda()
+    model = MixText(NUM_LABELS).cuda()
     model = nn.DataParallel(model)
     optimizer = AdamW(
         [
-            {"params": model.module.bert.parameters(), "lr": args.lrmain},
-            {"params": model.module.linear.parameters(), "lr": args.lrlast},
+            {"params": model.module.bert.parameters(), "lr": config['lrmain']},
+            {"params": model.module.linear.parameters(), "lr": config['lrlast']},
         ])
 
     num_warmup_steps = math.floor(50)
-    num_total_steps = args.val_iteration
 
     scheduler = None
     #WarmupConstantSchedule(optimizer, warmup_steps=num_warmup_steps)
@@ -142,10 +75,10 @@ def main():
     test_accs = []
 
     # Start training
-    for epoch in range(args.epochs):
+    for epoch in range(config['epochs']):
 
         train(labeled_trainloader, unlabeled_trainloader, model, optimizer,
-              scheduler, train_criterion, epoch, NUM_LABELS, args.train_aug)
+              scheduler, train_criterion, epoch, NUM_LABELS)
 
         # scheduler.step()
 
@@ -183,19 +116,19 @@ def main():
     print(test_accs)
 
 
-def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, scheduler, criterion, epoch, n_labels, train_aug=False):
+def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, scheduler, criterion, epoch, n_labels):
     labeled_train_iter = iter(labeled_trainloader)
     unlabeled_train_iter = iter(unlabeled_trainloader)
     model.train()
 
     global total_steps
     global flag
-    if flag == 0 and total_steps > args.temp_change:
+    if flag == 0 and total_steps > CONFIG['temp_change']:
         print('Change T!')
-        args.T = 0.9
+        CONFIG['T'] = 0.9
         flag = 1
 
-    for batch_idx in range(args.val_iteration):
+    for batch_idx in range(len(unlabeled_trainloader)):
 
         total_steps += 1
 
@@ -239,27 +172,19 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
             p = (0 * torch.softmax(outputs_u, dim=1) + 0 * torch.softmax(outputs_u2,
                                                                          dim=1) + 1 * torch.softmax(outputs_ori, dim=1)) / (1)
             # Do a sharpen here.
-            pt = p**(1/args.T)
+            pt = p**(1/CONFIG['T'])
             targets_u = pt / pt.sum(dim=1, keepdim=True)
             targets_u = targets_u.detach()
 
         mixed = 1
 
-        if args.co:
-            mix_ = np.random.choice([0, 1], 1)[0]
+        l = np.random.beta(CONFIG['alpha'], CONFIG['alpha'])
+        if CONFIG['separate_mix']:
+            l = l
         else:
-            mix_ = 1
+            l = max(l, 1-l)
 
-        if mix_ == 1:
-            l = np.random.beta(args.alpha, args.alpha)
-            if args.separate_mix:
-                l = l
-            else:
-                l = max(l, 1-l)
-        else:
-            l = 1
-
-        mix_layer = np.random.choice(args.mix_layers_set, 1)[0]
+        mix_layer = np.random.choice(CONFIG['mix_layers_set'], 1)[0]
         mix_layer = mix_layer - 1
 
         all_inputs = torch.cat(
@@ -271,7 +196,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
         all_targets = torch.cat(
             [targets_x, targets_u, targets_u, targets_u, targets_u], dim=0)
 
-        if args.separate_mix:
+        if CONFIG['separate_mix']:
             idx1 = torch.randperm(batch_size)
             idx2 = torch.randperm(all_inputs.size(0) - batch_size) + batch_size
             idx = torch.cat([idx1, idx2], dim=0)
@@ -286,12 +211,12 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
         target_a, target_b = all_targets, all_targets[idx]
         length_a, length_b = all_lengths, all_lengths[idx]
 
-        if args.mix_method == 0:
+        if CONFIG['mix_method'] == 0:
             # Mix sentences' hidden representations
             logits = model(input_a, input_b, l, mix_layer)
             mixed_target = l * target_a + (1 - l) * target_b
 
-        elif args.mix_method == 1:
+        elif CONFIG['mix_method'] == 1:
             # Concat snippet of two training sentences, the snippets are selected based on l
             # For example: "I lova you so much" and "He likes NLP" could be mixed as "He likes NLP so much".
             # The corresponding labels are mixed with coefficient as well
@@ -319,7 +244,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
             logits = model(mixed_input)
             mixed_target = l * target_a + (1 - l) * target_b
 
-        elif args.mix_method == 2:
+        elif CONFIG['mix_method'] == 2:
             # Concat two training sentences
             # The corresponding labels are averaged
             if l == 1:
@@ -341,12 +266,9 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
                 mixed = 1
 
         Lx, Lu, w, Lu2, w2 = criterion(logits[:batch_size], mixed_target[:batch_size], logits[batch_size:-batch_size_2],
-                                       mixed_target[batch_size:-batch_size_2], logits[-batch_size_2:], epoch+batch_idx/args.val_iteration, mixed)
+                                       mixed_target[batch_size:-batch_size_2], logits[-batch_size_2:], epoch+batch_idx/len(unlabeled_trainloader), mixed)
 
-        if mix_ == 1:
-            loss = Lx + w * Lu
-        else:
-            loss = Lx + w * Lu + w2 * Lu2
+        loss = Lx + w * Lu
 
         #max_grad_norm = 1.0
         #torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
@@ -390,8 +312,48 @@ def validate(valloader, model, criterion, epoch, mode):
 
     return loss_total, acc_total
 
+def collate_batch(batch):
+    """
+    Labeled batch: input_ids, attention_mask, labels
+    Unlabeled batch: input_ids, attention_mask, aug_input_ids, aug_attention_mask
+    """
+    if len(batch[0]) == 3:
 
-def linear_rampup(current, rampup_length=args.epochs):
+        input_ids, labels, lengths = [], [], []
+        for (_input, _label, _length) in batch:
+            input_ids.append(_input)
+            labels.append(_label)
+            lengths.append(_length)
+        
+        input_ids = pad_sequence(input_ids, batch_first = True, padding_value = PAD_token)
+                
+        return input_ids, torch.tensor(labels), torch.tensor(lengths)
+    
+    else:
+
+        ru_input_ids, de_input_ids, input_ids, ru_lengths, de_lengths, lengths = [], [], [], [], [], []
+        for (_ru_input, _de_input, _input, _ru_length, _de_length, _length) in batch:
+            ru_input_ids.append(_ru_input)
+            de_input_ids.append(_de_input)
+            input_ids.append(_input)
+
+            ru_lengths.append(_ru_length)
+            de_lengths.append(_de_length)
+            lengths.append(_length)
+        
+        ru_input_ids = pad_sequence(ru_input_ids, batch_first = True, padding_value = PAD_token)
+        de_input_ids = pad_sequence(de_input_ids, batch_first = True, padding_value = PAD_token)
+        input_ids = pad_sequence(input_ids, batch_first = True, padding_value = PAD_token)
+               
+        return ru_input_ids, de_input_ids, input_ids, torch.tensor(ru_lengths), torch.tensor(de_lengths), torch.tensor(lengths)
+
+def get_batch_size(num_samples, config):
+    
+    batch_size = min(num_samples//config['steps_per_epoch'], config['max_batch_size'])
+    batch_size = max(batch_size, config['min_batch_size'])
+    return batch_size
+
+def linear_rampup(current, rampup_length=CONFIG['epochs']):
     if rampup_length == 0:
         return 1.0
     else:
@@ -402,7 +364,7 @@ def linear_rampup(current, rampup_length=args.epochs):
 class SemiLoss(object):
     def __call__(self, outputs_x, targets_x, outputs_u, targets_u, outputs_u_2, epoch, mixed=1):
 
-        if args.mix_method == 0 or args.mix_method == 1:
+        if CONFIG['mix_method'] == 0 or CONFIG['mix_method'] == 1:
 
             Lx = - \
                 torch.mean(torch.sum(F.log_softmax(
@@ -413,9 +375,9 @@ class SemiLoss(object):
             Lu = F.kl_div(probs_u.log(), targets_u, None, None, 'batchmean')
 
             Lu2 = torch.mean(torch.clamp(torch.sum(-F.softmax(outputs_u, dim=1)
-                                                   * F.log_softmax(outputs_u, dim=1), dim=1) - args.margin, min=0))
+                                                   * F.log_softmax(outputs_u, dim=1), dim=1) - CONFIG['hinge_margin'], min=0))
 
-        elif args.mix_method == 2:
+        elif CONFIG['mix_method'] == 2:
             if mixed == 0:
                 Lx = - \
                     torch.mean(torch.sum(F.logsigmoid(
@@ -426,7 +388,7 @@ class SemiLoss(object):
                 Lu = F.kl_div(probs_u.log(), targets_u,
                               None, None, 'batchmean')
 
-                Lu2 = torch.mean(torch.clamp(args.margin - torch.sum(
+                Lu2 = torch.mean(torch.clamp(CONFIG['hinge_margin'] - torch.sum(
                     F.softmax(outputs_u_2, dim=1) * F.softmax(outputs_u_2, dim=1), dim=1), min=0))
             else:
                 Lx = - \
@@ -437,11 +399,12 @@ class SemiLoss(object):
                 Lu = F.kl_div(probs_u.log(), targets_u,
                               None, None, 'batchmean')
 
-                Lu2 = torch.mean(torch.clamp(args.margin - torch.sum(
+                Lu2 = torch.mean(torch.clamp(CONFIG['hinge_margin'] - torch.sum(
                     F.softmax(outputs_u, dim=1) * F.softmax(outputs_u, dim=1), dim=1), min=0))
 
-        return Lx, Lu, args.lambda_u * linear_rampup(epoch), Lu2, args.lambda_u_hinge * linear_rampup(epoch)
+        return Lx, Lu, CONFIG['lambda_u'] * linear_rampup(epoch), Lu2, CONFIG['lambda_u_hinge'] * linear_rampup(epoch)
 
 
 if __name__ == '__main__':
-    main()
+    
+    main(sys.argv[1])

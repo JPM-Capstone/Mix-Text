@@ -26,11 +26,9 @@ class LabeledDataset(Dataset):
     
     def __getitem__(self, index):
 
-        input_ids, attention_mask, label = self.data.iloc[index][['input_ids', 'attention_mask', 'labels']]
+        input_ids, _, label = self.data.iloc[index][['input_ids', 'attention_mask', 'labels']]
 
         input_ids = torch.tensor(np.array(input_ids.split()[1:-1] + [EOS_token], dtype=np.int64)) # convert string to array
-
-        # attention_mask = torch.tensor(np.array(['1'] + attention_mask.split()[1:-1] + ['1'], dtype=np.int64))
 
         return input_ids, label, len(input_ids)
 
@@ -73,7 +71,6 @@ class UnlabeledDataset(Dataset):
         input_ids, _, _ = data.iloc[index][['input_ids', 'attention_mask', 'labels']]
 
         input_ids = torch.tensor(np.array(input_ids.split()[1:-1] + [EOS_token], dtype=np.int64)) # convert string to array
-        # attention_mask = torch.tensor(np.array(['1'] + attention_mask.split()[1:-1] + ['1'], dtype=np.int64))
 
         idx = data.iloc[index].name
         ru_backtranslation, de_backtranslation = backtranslation_choices[0][idx], backtranslation_choices[1][idx]
