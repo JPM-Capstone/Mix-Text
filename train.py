@@ -335,7 +335,7 @@ def collate_batch(batch):
     else:
 
         ru_input_ids, de_input_ids, input_ids, ru_lengths, de_lengths, lengths = [], [], [], [], [], []
-        for (_ru_input, _de_input, _input, _ru_length, _de_length, _length) in batch:
+        for _ru_input, _de_input, _input, _ru_length, _de_length, _length in batch:
             ru_input_ids.append(_ru_input)
             de_input_ids.append(_de_input)
             input_ids.append(_input)
@@ -348,7 +348,7 @@ def collate_batch(batch):
         de_input_ids = pad_sequence(de_input_ids, batch_first = True, padding_value = PAD_token)
         input_ids = pad_sequence(input_ids, batch_first = True, padding_value = PAD_token)
                
-        return ru_input_ids, de_input_ids, input_ids, torch.tensor(ru_lengths), torch.tensor(de_lengths), torch.tensor(lengths)
+        return (ru_input_ids, de_input_ids, input_ids), (torch.tensor(ru_lengths), torch.tensor(de_lengths), torch.tensor(lengths))
 
 def get_batch_size(num_samples, config):
     
@@ -356,7 +356,7 @@ def get_batch_size(num_samples, config):
     batch_size = max(batch_size, config['min_batch_size'])
     return batch_size
 
-def linear_rampup(current, rampup_length=config['epochs']):
+def linear_rampup(current, rampup_length):
     if rampup_length == 0:
         return 1.0
     else:
@@ -405,7 +405,7 @@ class SemiLoss(object):
                 Lu2 = torch.mean(torch.clamp(config['hinge_margin'] - torch.sum(
                     F.softmax(outputs_u, dim=1) * F.softmax(outputs_u, dim=1), dim=1), min=0))
 
-        return Lx, Lu, config['lambda_u'] * linear_rampup(epoch), Lu2, config['lambda_u_hinge'] * linear_rampup(epoch)
+        return Lx, Lu, config['lambda_u'] * linear_rampup(epoch, config['epochs']), Lu2, config['lambda_u_hinge'] * linear_rampup(epoch, config['epochs'])
 
 
 if __name__ == '__main__':
