@@ -3,6 +3,7 @@ import torch.nn as nn
 from transformers import *
 from transformers.modeling_bert import BertEmbeddings, BertPooler, BertLayer
 
+CHECKPOINT = 'roberta-large'
 
 class BertModel4Mix(BertPreTrainedModel):
     def __init__(self, config):
@@ -161,9 +162,9 @@ class MixText(nn.Module):
         super(MixText, self).__init__()
 
         if mix_option:
-            self.bert = BertModel4Mix.from_pretrained('bert-base-uncased')
+            self.bert = BertModel4Mix.from_pretrained(CHECKPOINT)
         else:
-            self.bert = BertModel.from_pretrained('bert-base-uncased')
+            self.bert = BertModel.from_pretrained(CHECKPOINT)
 
         self.linear = nn.Sequential(nn.Linear(768, 128),
                                     nn.Tanh(),
