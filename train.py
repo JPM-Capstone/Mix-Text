@@ -191,7 +191,8 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
         mix_layer = mix_layer - 1
 
         all_inputs = torch.cat(
-            [inputs_x, inputs_u, inputs_u2, inputs_ori, inputs_ori], dim=0)
+            pad_sequence([inputs_x, inputs_u, inputs_u2, inputs_ori, inputs_ori], 
+                         batch_first = True, padding_value = PAD_token), dim=0)
 
         all_lengths = torch.cat(
             [inputs_x_length, length_u, length_u2, length_ori, length_ori], dim=0)
