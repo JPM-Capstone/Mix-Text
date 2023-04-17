@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from transformers import *
-from transformers.modeling_bert import BertEmbeddings, BertPooler, BertLayer
+from transformers.models.bert.modeling_bert import BertEmbeddings, BertPooler, BertLayer
 
 CHECKPOINT = 'roberta-large'
 
