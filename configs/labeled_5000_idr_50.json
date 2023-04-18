@@ -1,0 +1,20 @@
+{
+    "train_labeled_idx_name": "msr_30_equal_5000_labeled_indices.pt",
+    "train_unlabeled_idx_name": "msr_30_idr_50_50000_unlabeled_indices.pt",
+    "epochs": 4,
+    "steps_per_epoch": 256,
+    "max_batch_size": 112,
+    "min_batch_size": 8,
+    "val_batch_size": 32,
+    "lrmain": 5e-6,
+    "lrlast": 5e-4,
+    "mix_method": 0,
+    "separate_mix": false,
+    "mix_layers_set": [7, 9, 12],
+    "alpha": 16,
+    "lambda_u": 1,
+    "lambda_u_hinge": 0,
+    "T": 0.5,
+    "temp_change": 1e6,
+    "hinge_margin": 0.7
+}
