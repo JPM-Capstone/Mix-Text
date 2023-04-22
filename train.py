@@ -77,6 +77,13 @@ def main(config_name):
     criterion = nn.CrossEntropyLoss()
 
     test_accs = []
+    
+    config_results_path = os.path.join("results", config_name)
+    os.makedirs(config_results_path, exist_ok=True)
+
+    num_results = len(glob(os.path.join(config_results_path, f"run_*")))
+    run_results_path = os.path.join(config_results_path, f"run_{num_results + 1}")
+    os.makedirs(run_results_path)
 
     # Log part before start training: -- YQ
     logger = open(os.path.join(run_results_path,'std.log'),'w')
@@ -87,7 +94,7 @@ def main(config_name):
     logger.write(f"\nNumber of epochs through labeled data = {config['epochs'] * num_labeled_one_epoch}")
 
     logger.write(f"\nUnlabeled Batch Size = {unlabeled_batch_size}")
-    logger.write(f"\nNumber of epochs through labeled data = {config['epochs']}\n")
+    logger.write(f"\nNumber of epochs through unlabeled data = {config['epochs']}\n")
 
     start_time = time.time()
     # End Log part before start training: -- YQ
