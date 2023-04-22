@@ -152,8 +152,9 @@ def main(config_name):
     # Log part after the end of training: -- YQ
     end_time = time.time()
 
-    training_time_hours, training_time_minutes = divmod(end_time - start_time, 3600)
-
+    training_time_hours, remainder_secs = divmod(end_time - start_time, 3600)
+    training_time_minutes, remainder_secs = divmod(remainder_secs, 60)
+    
     logger.write(f"\nFinished training in: {int(training_time_hours)} hours, {int(training_time_minutes)} minutes")
     logger.close()
     # End Log part after the end of training: -- YQ
