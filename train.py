@@ -12,6 +12,7 @@ from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
 from glob import glob
 import time
+import pickle
 
 from mixtext import MixText
 
@@ -24,7 +25,6 @@ torch.cuda.empty_cache()
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-best_acc = 0
 total_steps = 0
 flag = 0
 
@@ -37,8 +37,6 @@ def main(config_name):
 
     with open(os.path.join("configs", f"{config_name}.json"), "r") as f:
         config = json.load(f)
-
-    global best_acc
 
     # Read dataset and build dataloaders
     labeled_train = LabeledDataset(config['train_labeled_idx_name'])
@@ -99,7 +97,13 @@ def main(config_name):
     logger.write(f"\nNumber of epochs through unlabeled data = {config['epochs']}\n")
 
     start_time = time.time()
-    # End Log part before start training: -- YQ
+
+    with open(os.path.join(run_results_path, "history.pkl"), 'wb') as f:
+        logs = {'train_loss': [],
+                'train_acc': [],
+                'val_losses': [],
+                'val_accuracy': []}
+        pickle.dump(logs, f)
     
     # Start training
     for epoch in range(config['epochs']):
@@ -109,44 +113,23 @@ def main(config_name):
 
         # scheduler.step()
 
-        train_loss, train_acc = validate(labeled_trainloader,
-                               model,  criterion, epoch, mode='Train Stats')
+        train_loss, train_acc = validate(labeled_trainloader, model, criterion)
         #print("epoch {}, train acc {}".format(epoch, train_acc))
 
-        val_loss, val_acc = validate(
-            val_loader, model, criterion, epoch, mode='Valid Stats')
+        val_loss, val_acc = validate(val_loader, model, criterion)
 
-        print("epoch {}, val acc {}, val_loss {}".format(
-            epoch, val_acc, val_loss))
-
-        if val_acc >= best_acc:
-            best_acc = val_acc
-            test_loss, test_acc = validate(
-                test_loader, model, criterion, epoch, mode='Test Stats ')
-            test_accs.append(test_acc)
-            print("epoch {}, test acc {},test loss {}".format(
-                epoch, test_acc, test_loss))
-
-        print('Epoch: ', epoch)
-
-        print('Best acc:')
-        print(best_acc)
-
-        print('Test acc:')
-        print(test_accs)
+        logger.write("epoch {}, val acc {}, val_loss {}".format(epoch, val_acc, val_loss))
         
         # Adding logs and saving models -- YQ
-        logs = pickle.load(open(os.path.join(results_path, "history.pkl"), 'rb'))
+        logs = pickle.load(open(os.path.join(run_results_path, "history.pkl"), 'rb'))
         logs['train_loss'].append(train_loss)
         logs['train_acc'].append(train_acc)
         logs['val_loss'].append(val_acc)
         logs['val_acc'].append(val_acc)
-
-        logs['test_accs'].append(test_accs)
         
-        pickle.dump(logs, open(os.path.join(results_path, "history.pkl"), 'wb'))
+        pickle.dump(logs, open(os.path.join(run_results_path, "history.pkl"), 'wb'))
 
-        torch.save(model.state_dict(), os.path.join(results_path, f"epoch_{epoch + 1}.pt"))
+        torch.save(model.state_dict(), os.path.join(run_results_path, f"epoch_{epoch + 1}.pt"))
         # End adding logs and saving models -- YQ
     
     # Log part after the end of training: -- YQ
@@ -158,13 +141,6 @@ def main(config_name):
     logger.write(f"\nFinished training in: {int(training_time_hours)} hours, {int(training_time_minutes)} minutes")
     logger.close()
     # End Log part after the end of training: -- YQ
-    
-    print("Finished training!")
-    print('Best acc:')
-    print(best_acc)
-
-    print('Test acc:')
-    print(test_accs)
 
 
 def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, scheduler, criterion, epoch, n_labels):
@@ -332,12 +308,12 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
         optimizer.step()
         # scheduler.step()
 
-        if batch_idx % 1000 == 0:
+        if batch_idx % 20 == 0:
             print("epoch {}, step {}, loss {}, Lx {}, Lu {}, Lu2 {}".format(
                 epoch, batch_idx, loss.item(), Lx.item(), Lu.item(), Lu2.item()))
 
 
-def validate(valloader, model, criterion, epoch, mode):
+def validate(valloader, model, criterion):
     model.eval()
     with torch.no_grad():
         loss_total = 0
