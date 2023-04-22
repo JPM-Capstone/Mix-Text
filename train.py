@@ -10,6 +10,8 @@ from torch.utils.data import DataLoader
 from transformers import *
 from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
+from glob import glob
+import time
 
 from mixtext import MixText
 
@@ -88,7 +90,7 @@ def main(config_name):
     # Log part before start training: -- YQ
     logger = open(os.path.join(run_results_path,'std.log'),'w')
 
-    logger.write(f"Labeled Batch Size = {labeled_batch_size}\n")
+    logger.write(f"Labeled Batch Size = {labeled_batch_size}")
 
     num_labeled_one_epoch = labeled_batch_size * (len(unlabeled_train) // unlabeled_batch_size) / len(labeled_train)
     logger.write(f"\nNumber of epochs through labeled data = {config['epochs'] * num_labeled_one_epoch}")
