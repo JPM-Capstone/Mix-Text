@@ -196,8 +196,8 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
             # For DBPedia: German: 1, Russian: 1, ori: 1
             # For IMDB: German: 0, Russian: 0, ori: 1
             # For Yahoo Answers: German: 1, Russian: 0, ori: 1 / German: 0, Russian: 0, ori: 1
-            p = (0 * torch.softmax(outputs_u, dim=1) + 0 * torch.softmax(outputs_u2,
-                                                                         dim=1) + 1 * torch.softmax(outputs_ori, dim=1)) / (1)
+            p = (1 * torch.softmax(outputs_u, dim=1) + 1 * torch.softmax(outputs_u2,
+                                                                         dim=1) + 1 * torch.softmax(outputs_ori, dim=1)) / (3)
             # Do a sharpen here.
             pt = p**(1/config['T'])
             targets_u = pt / pt.sum(dim=1, keepdim=True)
@@ -296,7 +296,7 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
                 logits = model(mixed_input, sent_size=256)
                 mixed = 1
 
-        Lx, Lu, w, Lu2, w2 = criterion(logits[:batch_size], mixed_target[:batch_size], logits[batch_size:-batch_size_2],
+        Lx, Lu, w, _, _ = criterion(logits[:batch_size], mixed_target[:batch_size], logits[batch_size:-batch_size_2],
                                        mixed_target[batch_size:-batch_size_2], logits[-batch_size_2:], epoch+batch_idx/len(unlabeled_trainloader), mixed)
 
         loss = Lx + w * Lu
@@ -308,10 +308,9 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
         optimizer.step()
         # scheduler.step()
 
-        if batch_idx % 20 == 0:
-            print("epoch {}, step {}, loss {}, Lx {}, Lu {}, Lu2 {}".format(
-                epoch, batch_idx, loss.item(), Lx.item(), Lu.item(), Lu2.item()))
-
+        if batch_idx % 1000 == 0:
+            print("epoch {}, step {}, loss {}, Lx {}, Lu {}".format(
+                epoch, batch_idx, loss.item(), Lx.item(), Lu.item()))
 
 def validate(valloader, model, criterion):
     model.eval()
@@ -401,12 +400,12 @@ class SemiLoss(object):
                 torch.mean(torch.sum(F.log_softmax(
                     outputs_x, dim=1) * targets_x, dim=1))
 
-            probs_u = torch.softmax(outputs_u, dim=1)
+            log_probs_u = torch.log_softmax(outputs_u, dim=1)
 
-            Lu = F.kl_div(probs_u.log(), targets_u, None, None, 'batchmean')
+            Lu = F.kl_div(log_probs_u, targets_u, None, None, 'batchmean')
 
-            Lu2 = torch.mean(torch.clamp(torch.sum(-F.softmax(outputs_u, dim=1)
-                                                   * F.log_softmax(outputs_u, dim=1), dim=1) - config['hinge_margin'], min=0))
+            # Lu2 = torch.mean(torch.clamp(torch.sum(-F.softmax(outputs_u, dim=1)
+            #                                        * F.log_softmax(outputs_u, dim=1), dim=1) - config['hinge_margin'], min=0))
 
         elif config['mix_method'] == 2:
             if mixed == 0:
@@ -419,8 +418,8 @@ class SemiLoss(object):
                 Lu = F.kl_div(probs_u.log(), targets_u,
                               None, None, 'batchmean')
 
-                Lu2 = torch.mean(torch.clamp(config['hinge_margin'] - torch.sum(
-                    F.softmax(outputs_u_2, dim=1) * F.softmax(outputs_u_2, dim=1), dim=1), min=0))
+                # Lu2 = torch.mean(torch.clamp(config['hinge_margin'] - torch.sum(
+                #     F.softmax(outputs_u_2, dim=1) * F.softmax(outputs_u_2, dim=1), dim=1), min=0))
             else:
                 Lx = - \
                     torch.mean(torch.sum(F.log_softmax(
@@ -430,10 +429,10 @@ class SemiLoss(object):
                 Lu = F.kl_div(probs_u.log(), targets_u,
                               None, None, 'batchmean')
 
-                Lu2 = torch.mean(torch.clamp(config['hinge_margin'] - torch.sum(
-                    F.softmax(outputs_u, dim=1) * F.softmax(outputs_u, dim=1), dim=1), min=0))
+                # Lu2 = torch.mean(torch.clamp(config['hinge_margin'] - torch.sum(
+                #     F.softmax(outputs_u, dim=1) * F.softmax(outputs_u, dim=1), dim=1), min=0))
 
-        return Lx, Lu, config['lambda_u'] * linear_rampup(epoch, config['epochs']), Lu2, config['lambda_u_hinge'] * linear_rampup(epoch, config['epochs'])
+        return Lx, Lu, config['lambda_u'] * linear_rampup(epoch, config['epochs']), 0, 0# Lu2, config['lambda_u_hinge'] * linear_rampup(epoch, config['epochs'])
 
 
 if __name__ == '__main__':

@@ -1,16 +1,17 @@
 import torch
 import torch.nn as nn
 from transformers import *
-from transformers.models.bert.modeling_bert import BertEmbeddings, BertPooler, BertLayer
+# from transformers.models.bert.modeling_bert import BertEmbeddings, BertPooler, BertLayer
+from transformers.models.roberta.modeling_roberta import RobertaEmbeddings, RobertaPooler, RobertaLayer
 
 CHECKPOINT = 'roberta-large'
 
-class BertModel4Mix(BertPreTrainedModel):
+class BertModel4Mix(RobertaPreTrainedModel):
     def __init__(self, config):
         super(BertModel4Mix, self).__init__(config)
-        self.embeddings = BertEmbeddings(config)
+        self.embeddings = RobertaEmbeddings(config)
         self.encoder = BertEncoder4Mix(config)
-        self.pooler = BertPooler(config)
+        self.pooler = RobertaPooler(config)
 
         self.init_weights()
 
@@ -99,7 +100,7 @@ class BertEncoder4Mix(nn.Module):
         super(BertEncoder4Mix, self).__init__()
         self.output_attentions = config.output_attentions
         self.output_hidden_states = config.output_hidden_states
-        self.layer = nn.ModuleList([BertLayer(config)
+        self.layer = nn.ModuleList([RobertaLayer(config)
                                     for _ in range(config.num_hidden_layers)])
 
     def forward(self, hidden_states, hidden_states2=None, l=None, mix_layer=1000, attention_mask=None, attention_mask2=None, head_mask=None):
