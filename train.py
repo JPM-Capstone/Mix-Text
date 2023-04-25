@@ -75,8 +75,6 @@ def main(config_name):
 
     train_criterion = SemiLoss()
     criterion = nn.CrossEntropyLoss()
-
-    test_accs = []
     
     config_results_path = os.path.join("results", config_name)
     os.makedirs(config_results_path, exist_ok=True)
@@ -86,8 +84,8 @@ def main(config_name):
     os.makedirs(run_results_path)
 
     # Log part before start training: -- YQ
-    logger = open(os.path.join(run_results_path,'std.log'),'w')
-
+    logger = open(os.path.join(run_results_path, 'std.log'), 'w')
+        
     logger.write(f"Labeled Batch Size = {labeled_batch_size}")
 
     num_labeled_one_epoch = labeled_batch_size * (len(unlabeled_train) // unlabeled_batch_size) / len(labeled_train)
@@ -101,8 +99,8 @@ def main(config_name):
     with open(os.path.join(run_results_path, "history.pkl"), 'wb') as f:
         logs = {'train_loss': [],
                 'train_acc': [],
-                'val_losses': [],
-                'val_accuracy': []}
+                'val_loss': [],
+                'val_acc': []}
         pickle.dump(logs, f)
     
     # Start training
@@ -114,17 +112,17 @@ def main(config_name):
         # scheduler.step()
 
         train_loss, train_acc = validate(labeled_trainloader, model, criterion)
-        #print("epoch {}, train acc {}".format(epoch, train_acc))
+        logger.write(f"\nepoch {epoch}, train acc {train_acc:.4f}, train_loss {train_loss:.4f}")
 
         val_loss, val_acc = validate(val_loader, model, criterion)
 
-        logger.write("epoch {}, val acc {}, val_loss {}".format(epoch, val_acc, val_loss))
+        logger.write(f"\nepoch {epoch}, val acc {val_acc:.4f}, val_loss {val_loss:.4f}")
         
         # Adding logs and saving models -- YQ
         logs = pickle.load(open(os.path.join(run_results_path, "history.pkl"), 'rb'))
         logs['train_loss'].append(train_loss)
         logs['train_acc'].append(train_acc)
-        logs['val_loss'].append(val_acc)
+        logs['val_loss'].append(val_loss)
         logs['val_acc'].append(val_acc)
         
         pickle.dump(logs, open(os.path.join(run_results_path, "history.pkl"), 'wb'))
@@ -156,6 +154,9 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
         flag = 1
 
     for batch_idx in tqdm(range(len(unlabeled_trainloader))):
+        
+        if batch_idx == 100:
+            break
 
         total_steps += 1
 
@@ -308,9 +309,10 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
         optimizer.step()
         # scheduler.step()
 
-        if batch_idx % 1000 == 0:
+        if batch_idx % 20 == 0:
             print("epoch {}, step {}, loss {}, Lx {}, Lu {}".format(
                 epoch, batch_idx, loss.item(), Lx.item(), Lu.item()))
+
 
 def validate(valloader, model, criterion):
     model.eval()
@@ -328,7 +330,7 @@ def validate(valloader, model, criterion):
             _, predicted = torch.max(outputs.data, 1)
 
             if batch_idx == 0:
-                print("Sample some true labeles and predicted labels")
+                print("Sample some true labels and predicted labels")
                 print(predicted[:20])
                 print(targets[:20])
 
