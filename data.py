@@ -28,7 +28,7 @@ class LabeledDataset(Dataset):
 
         input_ids, _, label = self.data.iloc[index][['input_ids', 'attention_mask', 'labels']]
 
-        input_ids = torch.tensor(np.array(input_ids.split()[1:-1] + [EOS_token], dtype=np.int64)) # convert string to array
+        input_ids = torch.tensor(np.array(input_ids.split()[1:-1] + [EOS_token], dtype=np.int64))[:256] # convert string to array
 
         return input_ids, label, len(input_ids)
 
@@ -70,13 +70,13 @@ class UnlabeledDataset(Dataset):
 
         input_ids, _, _ = data.iloc[index][['input_ids', 'attention_mask', 'labels']]
 
-        input_ids = torch.tensor(np.array(input_ids.split()[1:-1] + [EOS_token], dtype=np.int64)) # convert string to array
+        input_ids = torch.tensor(np.array(input_ids.split()[1:-1] + [EOS_token], dtype=np.int64))[:256] # convert string to array
 
         idx = data.iloc[index].name
         ru_backtranslation, de_backtranslation = backtranslation_choices[0][idx], backtranslation_choices[1][idx]
-        ru_input_ids, _ = (torch.tensor(np.array(ru_backtranslation['input_ids'])), 
+        ru_input_ids, _ = (torch.tensor(np.array(ru_backtranslation['input_ids']))[:256], 
                                            torch.tensor(np.array(ru_backtranslation['attention_mask'])))
-        de_input_ids, _ = (torch.tensor(np.array(de_backtranslation['input_ids'])), 
+        de_input_ids, _ = (torch.tensor(np.array(de_backtranslation['input_ids']))[:256], 
                                            torch.tensor(np.array(de_backtranslation['attention_mask'])))
         
         return ru_input_ids, de_input_ids, input_ids, len(ru_input_ids), len(de_input_ids), len(input_ids)

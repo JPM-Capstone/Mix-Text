@@ -39,7 +39,7 @@ def main():
 #SBATCH --gres=gpu:1            \n"
 
     job_params = dict(     
-        time = '24:00:00',                # Time per job
+        time = '20:00:00',                # Time per job
         memory = '32GB',                       # RAM required in GB
         partition = 'a100_1,a100_2,rtx8000')    # GPUs you want, to list all available run - partition list - sinfo -s
 
