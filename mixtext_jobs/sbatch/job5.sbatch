@@ -8,7 +8,7 @@
 #SBATCH --mem=32GB
 #SBATCH --time=15:00:00
 #SBATCH --job-name=Job5
-#SBATCH --output=./mixtext_jobs/logs/batch_1/job5.log
+#SBATCH --output=/home/as14229/NYU_HPC/Mix-Text/mixtext_jobs/logs/batch_1/job5.log
 
 source ~/.bashrc
 conda activate uda

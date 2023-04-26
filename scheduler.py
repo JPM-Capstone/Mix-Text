@@ -28,6 +28,7 @@ def main():
     jobs_dir = os.path.join(base_dir,'sbatch')
     os.makedirs(jobs_dir,exist_ok=True)
 
+    AS_logs_dir = "/home/as14229/NYU_HPC/Mix-Text" + logs_dir[1:]
 
     ### Setup Headers
 
@@ -48,7 +49,7 @@ def main():
     sbatch_header+=f'#SBATCH --time={job_params["time"]}\n'
 
     job_name_directive =  "#SBATCH --job-name=Job"
-    output_file_directive = "#SBATCH --output="+logs_dir+'/job'
+    output_file_directive = "#SBATCH --output="+AS_logs_dir+'/job'
 
     # Command Header
     command_header = "\n\
