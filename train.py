@@ -107,16 +107,16 @@ def main(config_name):
     for epoch in range(config['epochs']):
 
         train(labeled_trainloader, unlabeled_trainloader, model, optimizer,
-              scheduler, train_criterion, epoch, NUM_LABELS)
+              scheduler, train_criterion, epoch, NUM_LABELS, logger)
 
         # scheduler.step()
 
         train_loss, train_acc = validate(labeled_trainloader, model, criterion)
-        logger.write(f"\nepoch {epoch}, train acc {train_acc:.4f}, train_loss {train_loss:.4f}")
+        logger.write(f"\nEpoch {epoch + 1}: Train Accuracy = {train_acc:.4f}, Train Loss = {train_loss:.4f}")
 
         val_loss, val_acc = validate(val_loader, model, criterion)
 
-        logger.write(f"\nepoch {epoch}, val acc {val_acc:.4f}, val_loss {val_loss:.4f}")
+        logger.write(f"\nEpoch {epoch + 1}: Val Accuracy = {val_acc:.4f}, Val Loss = {val_loss:.4f}\n")
         
         # Adding logs and saving models -- YQ
         logs = pickle.load(open(os.path.join(run_results_path, "history.pkl"), 'rb'))
@@ -141,7 +141,7 @@ def main(config_name):
     # End Log part after the end of training: -- YQ
 
 
-def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, scheduler, criterion, epoch, n_labels):
+def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, scheduler, criterion, epoch, n_labels, logger):
     labeled_train_iter = iter(labeled_trainloader)
     unlabeled_train_iter = iter(unlabeled_trainloader)
     model.train()
@@ -154,9 +154,6 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
         flag = 1
 
     for batch_idx in tqdm(range(len(unlabeled_trainloader))):
-        
-        if batch_idx == 100:
-            break
 
         total_steps += 1
 
@@ -309,9 +306,8 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
         optimizer.step()
         # scheduler.step()
 
-        if batch_idx % 20 == 0:
-            print("epoch {}, step {}, loss {}, Lx {}, Lu {}".format(
-                epoch, batch_idx, loss.item(), Lx.item(), Lu.item()))
+        if (batch_idx + 1) % 1000 == 0:
+            logger.write(f"\nepoch {epoch+1}/step {batch_idx + 1}: Loss {loss.item():.4f}, Lx {Lx.item():.4f}, Lu {Lu.item():.4f}")
 
 
 def validate(valloader, model, criterion):
