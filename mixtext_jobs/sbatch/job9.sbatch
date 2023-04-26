@@ -11,7 +11,7 @@
 #SBATCH --output=./mixtext_jobs/logs/batch_1/job9.log
 
 source ~/.bashrc
-conda activate mixtext
+conda activate uda
 cd /home/as14229/NYU_HPC/Mix-Text/
 
 python train.py labeled_500_idr_75

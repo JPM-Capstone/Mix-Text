@@ -53,7 +53,7 @@ def main():
     # Command Header
     command_header = "\n\
 source ~/.bashrc\n\
-conda activate mixtext\n\
+conda activate uda\n\
 cd /home/as14229/NYU_HPC/Mix-Text/\n\n"
 
     # Main Commmand
