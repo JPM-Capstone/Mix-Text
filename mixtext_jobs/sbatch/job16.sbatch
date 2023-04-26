@@ -7,11 +7,11 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32GB
 #SBATCH --time=15:00:00
-#SBATCH --job-name=Job2
-#SBATCH --output=./mixtext_jobs/logs/batch_1/job2.log
+#SBATCH --job-name=Job16
+#SBATCH --output=./mixtext_jobs/logs/batch_1/job16.log
 
 source ~/.bashrc
 conda activate mixtext
 cd /home/as14229/NYU_HPC/MixText/
 
-python train.py labeled_100_idr_25
+python train.py labeled_5000_idr_5

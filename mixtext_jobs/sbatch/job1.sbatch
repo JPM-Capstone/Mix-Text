@@ -5,10 +5,10 @@
 #SBATCH --gres=gpu:1            
 #SBATCH --partition=a100_1,a100_2,rtx8000
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=16GB
-#SBATCH --time=20:00:00
+#SBATCH --mem=32GB
+#SBATCH --time=15:00:00
 #SBATCH --job-name=Job1
-#SBATCH --output=/home/as14229/NYU_HPC/MixText/jobs/logs/batch_1/job1.log
+#SBATCH --output=./mixtext_jobs/logs/batch_1/job1.log
 
 source ~/.bashrc
 conda activate mixtext
