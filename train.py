@@ -38,6 +38,13 @@ def main(config_name):
     with open(os.path.join("configs", f"{config_name}.json"), "r") as f:
         config = json.load(f)
 
+    GPU = torch.cuda.get_device_name() if torch.cuda.is_available() else None
+
+    if GPU:
+        if GPU == 'Quadro RTX 8000': config['max_batch_size'] = 3
+        elif GPU == 'NVIDIA A100-SXM4-80GB': config['max_batch_size'] = 6
+
+
     # Read dataset and build dataloaders
     labeled_train = LabeledDataset(config['train_labeled_idx_name'])
     unlabeled_train = UnlabeledDataset(config['train_unlabeled_idx_name'])

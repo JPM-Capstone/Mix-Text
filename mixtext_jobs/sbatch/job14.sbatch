@@ -6,7 +6,7 @@
 #SBATCH --partition=a100_1,a100_2,rtx8000
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32GB
-#SBATCH --time=15:00:00
+#SBATCH --time=24:00:00
 #SBATCH --job-name=Job14
 #SBATCH --output=/home/as14229/NYU_HPC/Mix-Text/mixtext_jobs/logs/batch_1/job14.log
 
