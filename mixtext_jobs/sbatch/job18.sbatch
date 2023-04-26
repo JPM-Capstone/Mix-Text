@@ -12,6 +12,6 @@
 
 source ~/.bashrc
 conda activate mixtext
-cd /home/as14229/NYU_HPC/MixText/
+cd /home/as14229/NYU_HPC/Mix-Text/
 
 python train.py labeled_5000_idr_50
