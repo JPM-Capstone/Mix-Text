@@ -54,7 +54,7 @@ def main():
     command_header = "\n\
 source ~/.bashrc\n\
 conda activate mixtext\n\
-cd /home/as14229/NYU_HPC/MixText/\n\n"
+cd /home/as14229/NYU_HPC/Mix-Text/\n\n"
 
     # Main Commmand
     command = "python train.py "
