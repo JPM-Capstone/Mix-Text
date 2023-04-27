@@ -90,7 +90,7 @@ def main(config_name):
     config_results_path = os.path.join("results", config_name)
     os.makedirs(config_results_path, exist_ok=True)
 
-    num_results = len(glob(os.path.join(config_results_path, f"run_*")))
+    num_results = np.random.choice(100000)#len(glob(os.path.join(config_results_path, f"run_*")))
     run_results_path = os.path.join(config_results_path, f"run_{num_results + 1}")
     os.makedirs(run_results_path)
 
