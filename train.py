@@ -41,8 +41,8 @@ def main(config_name):
     GPU = torch.cuda.get_device_name() if torch.cuda.is_available() else None
 
     if GPU:
-        if GPU == 'Quadro RTX 8000': config['max_batch_size'] = 3
-        elif GPU == 'NVIDIA A100-SXM4-80GB': config['max_batch_size'] = 6
+        if GPU == 'Quadro RTX 8000': config['max_batch_size'] = 8
+        elif GPU == 'NVIDIA A100-SXM4-80GB': config['max_batch_size'] = 16
 
 
     # Read dataset and build dataloaders
