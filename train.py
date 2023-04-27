@@ -336,7 +336,7 @@ def train(labeled_trainloader, unlabeled_trainloader, val_loader, model, optimiz
             
             pickle.dump(logs, open(os.path.join(run_results_path, "history.pkl"), 'wb'))
 
-            if ((batch_idx + 1) % 5000 == 0) and (epoch == 0):
+            if ((batch_idx + 1) % 5000 == 0) and (epoch + 1 == 1):
 
                 torch.save(model.state_dict(), os.path.join(run_results_path, f"epoch_{epoch + 1}_step_{batch_idx + 1}.pt"))
 
