@@ -39,7 +39,7 @@ def main():
 #SBATCH --gres=gpu:1            \n"
 
     job_params = dict(     
-        time = '18:00:00',                # Time per job
+        time = '16:00:00',                # Time per job
         memory = '32GB',                       # RAM required in GB
         partition = 'a100_1,a100_2,rtx8000')    # GPUs you want, to list all available run - partition list - sinfo -s
 
@@ -87,7 +87,7 @@ cd /home/as14229/NYU_HPC/Mix-Text/\n\n"
             file.write(job_name_directive+str(i)+'\n')
             file.write(output_file_directive+str(i)+'.log\n')
             file.write(command_header)
-            file.write(commands[i - 1])
+            file.write(commands[(i - 1) % (len(num_labeled) * len(idrs))])
 
     ### Make Schedule File
 

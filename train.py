@@ -40,9 +40,13 @@ def main(config_name):
 
     GPU = torch.cuda.get_device_name() if torch.cuda.is_available() else None
 
+    # if GPU:
+    #     if GPU == 'Quadro RTX 8000': config['max_batch_size'] = 8
+    #     elif GPU == 'NVIDIA A100-SXM4-80GB': config['max_batch_size'] = 16
+
     if GPU:
-        if GPU == 'Quadro RTX 8000': config['max_batch_size'] = 8
-        elif GPU == 'NVIDIA A100-SXM4-80GB': config['max_batch_size'] = 16
+        if GPU == 'Quadro RTX 8000': config['max_batch_size'] = 3
+        elif GPU == 'NVIDIA A100-SXM4-80GB': config['max_batch_size'] = 6
 
 
     # Read dataset and build dataloaders
@@ -113,28 +117,28 @@ def main(config_name):
     # Start training
     for epoch in range(config['epochs']):
 
-        train(labeled_trainloader, unlabeled_trainloader, model, optimizer,
-              scheduler, train_criterion, epoch, NUM_LABELS, logger)
+        train(labeled_trainloader, unlabeled_trainloader, val_loader, model, optimizer,
+              scheduler, train_criterion, epoch, NUM_LABELS, logger, run_results_path)
 
         # scheduler.step()
 
-        train_loss, train_acc = validate(labeled_trainloader, model, criterion)
-        logger.write(f"\nEpoch {epoch + 1}: Train Accuracy = {train_acc:.4f}, Train Loss = {train_loss:.4f}")
+        # train_loss, train_acc = validate(labeled_trainloader, model, criterion)
+        # logger.write(f"\nEpoch {epoch + 1}: Train Accuracy = {train_acc:.4f}, Train Loss = {train_loss:.4f}")
 
-        val_loss, val_acc = validate(val_loader, model, criterion)
+        # val_loss, val_acc = validate(val_loader, model, criterion)
 
-        logger.write(f"\nEpoch {epoch + 1}: Val Accuracy = {val_acc:.4f}, Val Loss = {val_loss:.4f}\n")
+        # logger.write(f"\nEpoch {epoch + 1}: Val Accuracy = {val_acc:.4f}, Val Loss = {val_loss:.4f}\n")
         
-        # Adding logs and saving models -- YQ
-        logs = pickle.load(open(os.path.join(run_results_path, "history.pkl"), 'rb'))
-        logs['train_loss'].append(train_loss)
-        logs['train_acc'].append(train_acc)
-        logs['val_loss'].append(val_loss)
-        logs['val_acc'].append(val_acc)
+        # # Adding logs and saving models -- YQ
+        # logs = pickle.load(open(os.path.join(run_results_path, "history.pkl"), 'rb'))
+        # logs['train_loss'].append(train_loss)
+        # logs['train_acc'].append(train_acc)
+        # logs['val_loss'].append(val_loss)
+        # logs['val_acc'].append(val_acc)
         
-        pickle.dump(logs, open(os.path.join(run_results_path, "history.pkl"), 'wb'))
+        # pickle.dump(logs, open(os.path.join(run_results_path, "history.pkl"), 'wb'))
 
-        torch.save(model.state_dict(), os.path.join(run_results_path, f"epoch_{epoch + 1}.pt"))
+        # torch.save(model.state_dict(), os.path.join(run_results_path, f"epoch_{epoch + 1}.pt"))
         # End adding logs and saving models -- YQ
     
     # Log part after the end of training: -- YQ
@@ -148,7 +152,7 @@ def main(config_name):
     # End Log part after the end of training: -- YQ
 
 
-def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, scheduler, criterion, epoch, n_labels, logger):
+def train(labeled_trainloader, unlabeled_trainloader, val_loader, model, optimizer, scheduler, criterion, epoch, n_labels, logger, run_results_path):
     labeled_train_iter = iter(labeled_trainloader)
     unlabeled_train_iter = iter(unlabeled_trainloader)
     model.train()
@@ -313,8 +317,26 @@ def train(labeled_trainloader, unlabeled_trainloader, model, optimizer, schedule
         optimizer.step()
         # scheduler.step()
 
-        if (batch_idx + 1) % 1000 == 0:
-            logger.write(f"\nepoch {epoch+1}/step {batch_idx + 1}: Loss {loss.item():.4f}, Lx {Lx.item():.4f}, Lu {Lu.item():.4f}")
+        if (batch_idx + 1) % 2000 == 0:
+            logger.write(f"\nEpoch {epoch+1}/step {batch_idx + 1}:\nLoss {loss.item():.4f}, Lx {Lx.item():.4f}, Lu {Lu.item():.4f}")
+
+            train_loss, train_acc = validate(labeled_trainloader, model, nn.CrossEntropyLoss())
+            logger.write(f"\nTrain Accuracy = {train_acc:.4f}, CrossEntropy Train Loss = {train_loss:.4f}")
+
+            val_loss, val_acc = validate(val_loader, model, nn.CrossEntropyLoss())
+
+            logger.write(f"\nVal Accuracy = {val_acc:.4f}, CrossEntropy Val Loss = {val_loss:.4f}\n")
+            
+            # Adding logs and saving models -- YQ
+            logs = pickle.load(open(os.path.join(run_results_path, "history.pkl"), 'rb'))
+            logs['train_loss'].append(train_loss)
+            logs['train_acc'].append(train_acc)
+            logs['val_loss'].append(val_loss)
+            logs['val_acc'].append(val_acc)
+            
+            pickle.dump(logs, open(os.path.join(run_results_path, "history.pkl"), 'wb'))
+
+            torch.save(model.state_dict(), os.path.join(run_results_path, f"epoch_{epoch + 1}_step_{batch_idx + 1}.pt"))
 
 
 def validate(valloader, model, criterion):

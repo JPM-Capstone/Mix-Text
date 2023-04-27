@@ -1,7 +1,7 @@
 {
     "train_labeled_idx_name": "msr_30_equal_5000_labeled_indices.pt",
     "train_unlabeled_idx_name": "msr_30_idr_75_50000_unlabeled_indices.pt",
-    "epochs": 4,
+    "epochs": 2,
     "steps_per_epoch": 256,
     "max_batch_size": 112,
     "min_batch_size": 1,
